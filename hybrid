@@ -1,0 +1,114 @@
+import gradio as gr
+import numpy as np
+from PIL import Image
+import joblib
+import tensorflow as tf
+
+# ======================
+# Load Pretrained Models
+# ======================
+
+# Diabetes model (e.g., trained with sklearn or XGBoost)
+diabetes_model = joblib.load("models/diabetes_model.pkl")
+
+# CNN-based models (e.g., Keras .h5 format)
+skin_cancer_model = tf.keras.models.load_model("models/skin_cancer_model.h5")
+xray_model = tf.keras.models.load_model("models/xray_model.h5")
+eye_disease_model = tf.keras.models.load_model("models/eye_disease_model.h5")
+color_blindness_model = tf.keras.models.load_model("models/color_blindness_model.h5")
+
+# ======================
+# Preprocessing Functions
+# ======================
+
+def preprocess_image(image: Image.Image, target_size=(224, 224)):
+    image = image.resize(target_size)
+    image = np.array(image) / 255.0
+    image = np.expand_dims(image, axis=0)  # Shape: (1, 224, 224, 3)
+    return image
+
+def preprocess_numerical_data(dataframe):
+    # Flatten dataframe to a 2D numpy array
+    data = np.array(dataframe).astype(float).reshape(1, -1)
+    return data
+
+# ======================
+# Model Prediction Functions
+# ======================
+
+def predict_diabetes(inputs):
+    data = preprocess_numerical_data(inputs)
+    prediction = diabetes_model.predict(data)[0]
+    return "🩺 Diabetes: Positive" if prediction == 1 else "🩺 Diabetes: Negative"
+
+def predict_skin_cancer(image):
+    image_data = preprocess_image(image)
+    prediction = skin_cancer_model.predict(image_data)[0]
+    label = np.argmax(prediction)
+    return "🧴 Skin Cancer: Malignant" if label == 1 else "🧴 Skin Cancer: Benign"
+
+def predict_xray(image):
+    image_data = preprocess_image(image)
+    prediction = xray_model.predict(image_data)[0]
+    label = np.argmax(prediction)
+    return "🫁 X-Ray: Pneumonia" if label == 1 else "🫁 X-Ray: Normal"
+
+def detect_color_blindness(image):
+    image_data = preprocess_image(image)
+    prediction = color_blindness_model.predict(image_data)[0]
+    label = np.argmax(prediction)
+    return "👁️ Color Blindness: Detected" if label == 1 else "👁️ Color Blindness: Not Detected"
+
+def predict_eye_disease(image):
+    image_data = preprocess_image(image)
+    prediction = eye_disease_model.predict(image_data)[0]
+    label = np.argmax(prediction)
+    return "👁️ Eye Disease: Cataract" if label == 1 else "👁️ Eye Disease: Normal"
+
+# ======================
+# Hybrid Dispatcher Function
+# ======================
+
+def hybrid_diagnosis(mode, image=None, inputs=None):
+    if mode == "Diabetes Prediction":
+        return predict_diabetes(inputs)
+    elif mode == "Skin Cancer Detection":
+        return predict_skin_cancer(image)
+    elif mode == "X-ray Diagnosis":
+        return predict_xray(image)
+    elif mode == "Color Blindness Test":
+        return detect_color_blindness(image)
+    elif mode == "Eye Disease Diagnosis":
+        return predict_eye_disease(image)
+    else:
+        return "❌ Invalid Mode Selected."
+
+# ======================
+# Gradio Interface
+# ======================
+
+modes = [
+    "Diabetes Prediction", 
+    "Skin Cancer Detection", 
+    "X-ray Diagnosis", 
+    "Color Blindness Test", 
+    "Eye Disease Diagnosis"
+]
+
+iface = gr.Interface(
+    fn=hybrid_diagnosis,
+    inputs=[
+        gr.Dropdown(choices=modes, label="Select Diagnosis Mode"),
+        gr.Image(type="pil", label="Upload Image (if required)", optional=True),
+        gr.Dataframe(
+            headers=["Glucose", "BloodPressure", "BMI", "Age"], 
+            label="Enter Medical Data (if required)", 
+            optional=True
+        )
+    ],
+    outputs=gr.Textbox(label="Diagnosis Result"),
+    title="🧠 Smart Clinic: AI-Powered Disease Diagnosis",
+    description="Upload medical data or an image, and the system will use the appropriate AI model for diagnosis."
+)
+
+iface.launch()
